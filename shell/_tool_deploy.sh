@@ -26,7 +26,7 @@ fi
 
 # the accounts, where the pipeline will run.
 # The profiles should be already declared in .aws here
-declare -a arr=("dev" "devops" "stage" "prod" "demo")
+declare -a arr=("dev"  "devops" "stage" "prod" "demo")
 
 ## now loop through the above accounts and deploy the roles
 for i in "${arr[@]}"

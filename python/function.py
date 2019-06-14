@@ -70,7 +70,7 @@ def lambda_handler(event, context):
         logger.info(attachDevice)
         
         
-        # find if the ECS owns this instance: switch from ec2 instances to container instances, get all tasks running on instances
+        #logger.info(result)
         ecsCluster=""
         ecsContainerInstanceId=""
         rc = ecs.list_clusters()
@@ -95,12 +95,16 @@ def lambda_handler(event, context):
         )['taskArns']
         logger.info(taskArns)
         
-        # get teh task details
+        if not len(taskArns) > 0:
+            logger.info("No tasks are scheduled to the instance {} by cluster {}".format(attachEc2InstanceId,ecsCluster))
+            return
+        
+        # get the task details
         tasks=ecs.describe_tasks(
             cluster=ecsCluster,
             tasks=taskArns
         )['tasks']
-        #logger.info(tasks)
+        logger.info(tasks)
         
         taskContainers={}
         for task in tasks:
