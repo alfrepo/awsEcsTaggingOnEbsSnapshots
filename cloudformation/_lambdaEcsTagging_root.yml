@@ -1,0 +1,58 @@
+# vim: set ft=yaml
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploys the pipeline for the api gateway custom HostedZoneNames
+
+Parameters:
+
+  TargetAwsAccount:
+    AllowedValues: 
+      - dev
+      - stage
+      - prod
+      - demo
+      - devops
+    ConstraintDescription: must be one of the accounts, either dev, stage, ...
+    Description: The TARGET account. To which the pipeline should enroll its content.
+    Type: String
+
+
+  LambdaS3Bucket:
+    Description: LambdaS3Bucket
+    Type: String
+
+  LambdaS3Key:
+    Description: LambdaS3Key
+    Type: String
+
+
+  PlatformPrefix:
+    AllowedPattern: >-
+      ^[a-zA-Z0-9_-]*$
+    Description: The prefix used for the platform values on the target account
+    Type: String
+
+
+Resources:
+
+  lambdaEcsTaggingSecurity:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: lambdaEcsTaggingSecurity.yml
+      Parameters:
+        TargetAwsAccount: !Ref "TargetAwsAccount"
+        ExportPrefix: !Sub '${AWS::StackName}'
+        PlatformPrefix: !Ref PlatformPrefix
+
+
+  lambdaEcsTaggingLambda:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn: "lambdaEcsTaggingSecurity"
+    Properties:
+      TemplateURL: lambdaEcsTaggingLambda.yml
+      Parameters:
+        TargetAwsAccount: !Ref "TargetAwsAccount"
+        ExportPrefix: !Sub '${AWS::StackName}'
+        PlatformPrefix: !Ref PlatformPrefix
+        LambdaS3Bucket: !Ref LambdaS3Bucket
+        LambdaS3Key: !Ref LambdaS3Key

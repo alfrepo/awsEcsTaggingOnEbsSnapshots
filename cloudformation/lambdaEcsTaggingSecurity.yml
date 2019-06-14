@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Shared Application Resources the common API Gateway part eg like custom domains
+
+Parameters:
+
+  # use an explicitely set ExportPrefix instead of the name of the stack, because on nested stacks - the name cant be contorlled
+  ExportPrefix:
+    AllowedPattern: >-
+      ^[a-zA-Z0-9_-]*$
+    Description: The prefix used for the exported values.
+    Type: String
+
+  TargetAwsAccount:
+    Description: The TARGET account. To which the pipeline should enroll its content.
+    Type: String
+    AllowedValues:
+    - dev
+    - stage
+    - prod
+    - demo
+    - devops
+    ConstraintDescription: must be one of the accounts
+    Default: "dev"
+
+
+  PlatformPrefix:
+    AllowedPattern: >-
+      ^[a-zA-Z0-9_-]*$
+    Description: The prefix used for the platform values on the target account
+    Type: String
+
+Resources:
+
+  # The role, which is used for DLM
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ExportPrefix}-LambdaRole"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+
+
+  LambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ExportPrefix}-LambdaRolePolicy"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - ec2:*
+              
+              - cloudwatch:*
+              - events:*
+              - logs:*
+              - xray:*
+
+              - "ecs:*" # reading the cluster for tagging
+            Resource: "*"
+      Roles:
+        - !Ref LambdaRole
+
+
+
+  LambdaFunctionSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: {'Fn::ImportValue': !Sub '${PlatformPrefix}-VPCID'}
+      GroupDescription: LambdaFunctionSG
+      Tags:
+        - Key: Purpose
+          Value: LambdaFunctionSG
+      SecurityGroupIngress:
+        - IpProtocol : "-1"
+          CidrIp : "0.0.0.0/0"
+          Description: all traffic
+
+Outputs:
+
+  LambdaRole:
+    Description: LambdaRole
+    Value: !Ref LambdaRole
+    Export:
+      Name: !Sub '${ExportPrefix}-LambdaRole'
+
+
+  LambdaRoleArn:
+    Description: LambdaRoleArn
+    Value: !GetAtt LambdaRole.Arn
+    Export:
+      Name: !Sub '${ExportPrefix}-LambdaRoleArn'
+
+  LambdaFunctionSG:
+    Description: LambdaFunctionSG
+    Value: !Ref LambdaFunctionSG
+    Export:
+      Name: !Sub '${ExportPrefix}-LambdaFunctionSG'

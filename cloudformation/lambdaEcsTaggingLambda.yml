@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Shared Application Resources the common API Gateway part eg like custom domains
+
+Parameters:
+
+  # use an explicitely set ExportPrefix instead of the name of the stack, because on nested stacks - the name cant be contorlled
+  ExportPrefix:
+    AllowedPattern: >-
+      ^[a-zA-Z0-9_-]*$
+    Description: The prefix used for the exported values.
+    Type: String
+
+  LambdaS3Bucket:
+    Description: LambdaS3Bucket. E.g. reactive-refarch-cloudformation-us-east-1
+    Type: String
+
+  LambdaS3Key:
+    Description: LambdaS3Key. E.g. lambda/kinesis-consumer-2.2.zip
+    Type: String
+
+  TargetAwsAccount:
+    Description: The TARGET account. To which the pipeline should enroll its content.
+    Type: String
+    AllowedValues:
+    - dev
+    - stage
+    - prod
+    - demo
+    - devops
+    ConstraintDescription: must be one of the accounts
+    Default: "dev"
+
+  PlatformPrefix:
+    AllowedPattern: >-
+      ^[a-zA-Z0-9_-]*$
+    Description: The prefix used for the platform values on the target account
+    Type: String
+
+  LambdaRate:
+    Description: >
+      The rate (frequency) that determines when CloudWatch Events runs the rule that
+      triggers the Lambda function.
+    Default: rate(60 minutes)
+    AllowedValues:
+      - rate(1 minute)
+      - rate(10 minutes)
+      - rate(60 minutes)
+    Type: String
+
+Resources:
+
+  EcsSnapshotTagRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Run the ECS tagging lambda on snapshot creation"
+      Name: !Sub "${ExportPrefix}-EcsSnapshotTagRule"
+      State: "ENABLED"
+      EventPattern:
+        {
+          "source": [
+            "aws.ec2"
+          ],
+          "detail-type": [
+            "EBS Snapshot Notification"
+          ],
+          "detail": {
+            "event": [
+              "createSnapshot"
+            ],
+            "result": [
+              "succeeded"
+            ]
+          }
+        }
+      Targets:
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: 'LambdaFunction'
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub ${ExportPrefix}-LambdaFunction
+      Handler: "function.lambda_handler"
+      Role: {'Fn::ImportValue': !Sub '${ExportPrefix}-LambdaRoleArn'}
+      Code: 
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref LambdaS3Key
+      Runtime: "python2.7"
+      MemorySize: 128
+      Timeout: 900
+      VpcConfig:
+        SecurityGroupIds:
+          - {'Fn::ImportValue': !Sub '${ExportPrefix}-LambdaFunctionSG'}
+        SubnetIds:
+            - {'Fn::ImportValue': !Sub '${PlatformPrefix}-PrivateSubnet1AID'}
+            - {'Fn::ImportValue': !Sub '${PlatformPrefix}-PrivateSubnet1BID'}
+            - {'Fn::ImportValue': !Sub '${PlatformPrefix}-PrivateSubnet1CID'}
+      Environment: 
+        Variables:
+          REGION: !Sub '${AWS::Region}'
+
+
+Outputs:
+
+  LambdaFunctionSG:
+    Description: LambdaFunction
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${ExportPrefix}-LambdaFunction'
+
