@@ -2,6 +2,8 @@ Creates the IAM roles security groups and a lambda, which taggs an EBS snapshot 
 The deployed lambda will be started, when a new snapshot is created. <br>
 The lambda will add the docker label tags to the new snapshot. <br>
 
+Will only add tags, if any ECS tasks are scheduled to the associated instance.
+
 
 How to run:
 
